@@ -1,8 +1,11 @@
 <script setup lang="ts">
-import { useBoardStore } from '../stores/boardStore'
+import { useBoardStore } from '~/stores/boardStore'
+import type { ColumnI } from '~/model/ColumnI'
+
+const toast = useToast()
 
 const props = defineProps<{
-  column: object
+  column: ColumnI
   columnIndex: number
 }>()
 
@@ -16,13 +19,20 @@ const pickupColumn = (event: DragEvent, fromColumnIndex: number) => {
   event.dataTransfer?.effectAllowed === 'move'
   event.dataTransfer?.dropEffect === 'move'
   event.dataTransfer?.setData('type', 'column')
-  event.dataTransfer?.setData('from-column-index', fromColumnIndex.toString()) // remove toString at some point?
+  event.dataTransfer?.setData('from-column-index', fromColumnIndex.toString())
 }
 
-const deleteColumn = (columnIndex: number) =>
+const deleteColumn = (columnName: string, columnIndex: number) => {
+  toast.add({
+    title: 'Column delete',
+    description: `${columnName} has been deleted.`,
+    icon: 'i-heroicons-trash',
+    color: 'red',
+  })
   boardStore.deleteColumn(columnIndex)
+}
 
-const goToTask = (taskId: number) => {
+const goToTask = (taskId: string) => {
   router.push(`/tasks/${taskId}`)
 }
 
@@ -38,39 +48,42 @@ const pickupTask = (
   event: DragEvent,
   indexes: { fromColumnIndex: number; fromTaskIndex: number }
 ) => {
+  const { fromColumnIndex, fromTaskIndex } = indexes
   event.dataTransfer?.effectAllowed === 'move'
   event.dataTransfer?.dropEffect === 'move'
   event.dataTransfer?.setData('type', 'task')
-  event.dataTransfer?.setData(
-    'from-column-index',
-    indexes.fromColumnIndex.toString()
-  ) // remove toString at some point?
-  event.dataTransfer?.setData(
-    'from-task-index',
-    indexes.fromTaskIndex.toString()
-  ) // remove toString at some point?
+  event.dataTransfer?.setData('from-column-index', fromColumnIndex.toString())
+  event.dataTransfer?.setData('from-task-index', fromTaskIndex.toString())
 }
 
-const dropItem = (event: DragEvent, indexes: { toColumnIndex: number, toTaskIndex?: number}) => {
-  const type = event.dataTransfer?.getData('type')
-  const fromColumnIndex = event?.dataTransfer?.getData('from-column-index')
+const dropItem = (
+  event: DragEvent,
+  indexes: { toColumnIndex: number; toTaskIndex?: number }
+) => {
+  const { toColumnIndex, toTaskIndex } = indexes
 
-  // to remove?
-  indexes.toColumnIndex = indexes.toColumnIndex.toString()
+  const type = event.dataTransfer?.getData('type')
+  const fromColumnIndex = Number(
+    event?.dataTransfer?.getData('from-column-index')
+  )
 
   if (type === 'task') {
-    const fromTaskIndex = event?.dataTransfer?.getData('from-task-index')
+    const fromTaskIndex = Number(
+      event?.dataTransfer?.getData('from-task-index')
+    )
 
-    boardStore.moveTask({
-      fromTaskIndex,
-      toTaskIndex: indexes.toTaskIndex,
-      fromColumnIndex,
-      toColumnIndex: indexes.toColumnIndex,
-    })
+    if (toTaskIndex !== undefined) {
+      boardStore.moveTask({
+        fromTaskIndex,
+        toTaskIndex,
+        fromColumnIndex,
+        toColumnIndex,
+      })
+    }
   } else if (type === 'column') {
     boardStore.moveColumn({
       fromColumnIndex,
-      toColumnIndex: indexes.toColumnIndex,
+      toColumnIndex,
     })
   }
 }
@@ -98,21 +111,28 @@ const dropItem = (event: DragEvent, indexes: { toColumnIndex: number, toTaskInde
 
       <div>
         <UButton
+          v-if="!editNameState"
           icon="i-heroicons-pencil-square"
+          class="mr-2"
+          @click="editNameState = !editNameState"
+        />
+        <UButton
+          v-else
+          icon="i-heroicons-check"
           class="mr-2"
           @click="editNameState = !editNameState"
         />
         <UButton
           icon="i-heroicons-trash"
           color="red"
-          @click="deleteColumn(columnIndex)"
+          @click="deleteColumn(column.name, columnIndex)"
         />
       </div>
     </div>
     <ul>
       <li v-for="(task, taskIndex) in column.tasks" :key="task.id">
         <UCard
-          class="mb-4"
+          class="mb-4 cursor-pointer"
           @click="goToTask(task.id)"
           draggable="true"
           @dragstart="
@@ -136,7 +156,7 @@ const dropItem = (event: DragEvent, indexes: { toColumnIndex: number, toTaskInde
     <UInput
       v-model="newTaskName"
       type="text"
-      placeholder="Create new column"
+      placeholder="Create new task"
       icon="i-heroicons-plus-circle-solid"
       @keyup.enter="addTask"
     />

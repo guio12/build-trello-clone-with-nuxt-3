@@ -21,6 +21,8 @@
     "@types/uuid": "^9.0.8",
     "@vueuse/core": "^10.7.2",
     "@vueuse/nuxt": "^10.7.2",
-    "uuid": "^9.0.1"
+    "typescript": "^5.3.3",
+    "uuid": "^9.0.1",
+    "vue-tsc": "^1.8.27"
   }
 }
